@@ -3,6 +3,9 @@ export const config = {
 };
 
 export default async function handler(req) {
+  // ⚠️ PUT YOUR GROQ API KEY HERE ⚠️
+  const API_KEY = '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'; // <-- REPLACE THIS!
+
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -30,26 +33,10 @@ export default async function handler(req) {
   }
 
   try {
-    // Get API key from environment
-    const API_KEY = process.env.GROQ_API_KEY;
-
-    if (!API_KEY) {
-      return new Response(
-        JSON.stringify({ error: 'GROQ_API_KEY not configured on server' }),
-        {
-          status: 500,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
-        }
-      );
-    }
-
     // Parse request body
     const body = await req.json();
 
-    // Call Groq API (it uses OpenAI format!)
+    // Call Groq API
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -66,25 +53,11 @@ export default async function handler(req) {
 
     const data = await response.json();
 
-    // Check for errors from Groq
-    if (data.error) {
-      return new Response(
-        JSON.stringify({ error: data.error.message || 'Groq API Error' }),
-        {
-          status: 400,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
-        }
-      );
-    }
-
-    // Return response (already in OpenAI format!)
+    // Return response
     return new Response(
       JSON.stringify(data),
       {
-        status: 200,
+        status: response.status,
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
