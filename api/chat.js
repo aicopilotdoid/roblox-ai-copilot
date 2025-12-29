@@ -1,75 +1,107 @@
-// Roblox AI Copilot API
-// This handles requests from your plugin
+export const config = {
+  runtime: 'edge',
+};
 
-export default async function handler(req, res) {
-  // Allow requests from anywhere
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  // Handle preflight request
+export default async function handler(req) {
+  // Handle CORS
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    return new Response(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      },
+    });
   }
 
-  // Only allow POST requests
+  // Only allow POST
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return new Response(
+      JSON.stringify({ error: 'Method not allowed. Use POST.' }),
+      {
+        status: 405,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
   }
 
   try {
-    // Get the API key from environment variable
-    const API_KEY = process.env.AI_API_KEY;
-    
+    // Get API key from environment
+    const API_KEY = process.env.GROQ_API_KEY;
+
     if (!API_KEY) {
-      return res.status(500).json({ error: 'API key not configured' });
+      return new Response(
+        JSON.stringify({ error: 'GROQ_API_KEY not configured on server' }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
     }
 
-    // Get request body
-    const body = req.body;
+    // Parse request body
+    const body = await req.json();
 
-    // Forward request to Google AI
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: body.messages.map(msg => ({
-            role: msg.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: msg.content }]
-          })),
-          generationConfig: {
-            temperature: body.temperature || 0.7,
-            maxOutputTokens: body.max_tokens || 4096,
-          }
-        })
-      }
-    );
+    // Call Groq API (it uses OpenAI format!)
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: body.model || 'llama-3.3-70b-versatile',
+        messages: body.messages || [],
+        temperature: body.temperature || 0.7,
+        max_tokens: body.max_tokens || 4096,
+      }),
+    });
 
     const data = await response.json();
 
-    // Check for errors
+    // Check for errors from Groq
     if (data.error) {
-      return res.status(400).json({ error: data.error.message });
+      return new Response(
+        JSON.stringify({ error: data.error.message || 'Groq API Error' }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
     }
 
-    // Format response like OpenAI (so plugin works)
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    
-    return res.status(200).json({
-      choices: [{
-        message: {
-          role: 'assistant',
-          content: content
-        }
-      }]
-    });
+    // Return response (already in OpenAI format!)
+    return new Response(
+      JSON.stringify(data),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
 
   } catch (error) {
-    console.error('Error:', error);
-    return res.status(500).json({ error: 'Something went wrong: ' + error.message });
+    return new Response(
+      JSON.stringify({ error: 'Server error: ' + error.message }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
   }
 }
