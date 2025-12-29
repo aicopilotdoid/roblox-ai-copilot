@@ -1,0 +1,13 @@
+{
+  "name": "roblox-ai-copilot",
+  "version": "1.0.0",
+  "description": "AI Copilot API for Roblox",
+  "main": "api/chat.js",
+  "scripts": {
+    "start": "node api/chat.js"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": "18.x"
+  }
+}
